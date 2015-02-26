@@ -6,8 +6,8 @@
 -- >
 -- > main = do
 -- >   let config = defaultConfig { webhookurl = "https://hooks.slack.com/services/your/slack/webhookurl"
--- >                              , channel = "#general"
--- >                              , username = "haskell"
+-- >                              , channel = Just "#general"
+-- >                              , username = Just "haskell"
 -- >                              }
 -- >    notify config "Hello, World"
 -- >    return ()
@@ -17,6 +17,7 @@ module Network.Slack.Notifier
        , notify
        ) where
 
+import           Control.Exception
 import           Control.Monad
 import qualified Data.ByteString.Char8                 as BS
 import           Data.List
@@ -25,6 +26,7 @@ import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as T
 import           Network
 import           Network.HTTP.Client
+import           Network.HTTP.Client.Internal          ()
 import           Network.HTTP.Client.MultipartFormData
 import           Network.HTTP.Client.TLS
 ----------------------------------------------------------------------
@@ -54,21 +56,26 @@ encode = (`BS.append` "}") . ("{" `BS.append`) .
 
 -- | Notify text to slack.
 -- Throws exception when the request fail.
-notify :: Config -> T.Text -> IO Bool
-notify conf body =
-  withSocketsDo $ withManager tlsManagerSettings $ \m -> do
-    req <- parseUrl (webhookurl conf)
-    void $ flip httpLbs m =<<
-      (flip formDataBody req $
-       [partBS "payload" $ encode $
-        mbl "channel" (channel conf) ++
-        mbl "username" (username conf) ++
-        mbl "icon_url" (iconurl conf) ++
-        mbl "icon_emoji" (iconemoji conf) ++
-        [("text", T.encodeUtf8 body)]
-       ]
-      )
-    return True
+notify :: Config -> T.Text -> IO (Either HttpException ())
+notify conf body = go `catch` (\(e) -> return $ Left e)
   where
     mbl key (Just a) = [(key, T.encodeUtf8 a)]
     mbl _ _ = []
+    safetext = T.concat . intersperse "\\n" . T.split (=='\n')
+    go = withSocketsDo $ withManager tlsManagerSettings $ \m -> do
+      req <- parseUrl (webhookurl conf)
+      void $ flip httpLbs m =<<
+        (flip formDataBody req $
+         [partBS "payload" $ encode $
+          mbl "channel" (channel conf) ++
+          mbl "username" (username conf) ++
+          mbl "icon_url" (iconurl conf) ++
+          mbl "icon_emoji" (iconemoji conf) ++
+          [("text", T.encodeUtf8 . safetext $ body)]
+         ]
+        )
+      return $ Right ()
+
+
+t = defaultConfig { webhookurl = "https://hooks.slack.com/services/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doio"
+                  }
