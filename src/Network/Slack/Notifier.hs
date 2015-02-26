@@ -61,7 +61,8 @@ notify conf body = go `catch` (\(e) -> return $ Left e)
   where
     mbl key (Just a) = [(key, T.encodeUtf8 a)]
     mbl _ _ = []
-    safetext = T.concat . intersperse "\\n" . T.split (=='\n')
+    safetext = T.concat . intersperse "\\\"" . T.splitOn "\"" .
+               T.concat . intersperse "\\n" . T.split (=='\n')
     go = withSocketsDo $ withManager tlsManagerSettings $ \m -> do
       req <- parseUrl (webhookurl conf)
       void $ flip httpLbs m =<<
@@ -75,7 +76,3 @@ notify conf body = go `catch` (\(e) -> return $ Left e)
          ]
         )
       return $ Right ()
-
-
-t = defaultConfig { webhookurl = "https://hooks.slack.com/services/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doio"
-                  }
