@@ -24,7 +24,7 @@ import           Data.List
 import qualified Data.Map.Strict                       as M ()
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as T
-import           Network
+import           Network.Socket
 import           Network.HTTP.Client
 import           Network.HTTP.Client.Internal          ()
 import           Network.HTTP.Client.MultipartFormData
